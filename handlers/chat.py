@@ -9,7 +9,7 @@ from telegram.ext import (
 
 from keyboards import main_keyboard, chat_mode_keyboard
 from service import AgentService
-from database import get_session
+from database import get_session, close
 
 
 WAITING_FOR_MESSAGE = 1
@@ -34,16 +34,19 @@ async def receive_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
 
     session = get_session()
-    agent_service = AgentService(session)
+    try:
+        agent_service = AgentService(session)
 
-    # Генерация ответа через ИИ
-    response = agent_service.chat_with_ai(user_message)
+        # Генерация ответа через ИИ
+        response = agent_service.chat_with_ai(user_message)
 
-    # Отправка ответа пользователю (не редактирование, а новое сообщение)
-    await update.message.reply_text(
-        f"🤖 {response}",
-        reply_markup=chat_mode_keyboard()
-    )
+        # Отправка ответа пользователю (не редактирование, а новое сообщение)
+        await update.message.reply_text(
+            f"🤖 {response}",
+            reply_markup=chat_mode_keyboard()
+        )
+    finally:
+        close()
 
     return WAITING_FOR_MESSAGE
 

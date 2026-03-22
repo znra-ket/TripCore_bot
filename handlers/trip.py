@@ -10,7 +10,7 @@ from telegram.ext import (
 
 from keyboards import main_keyboard, cancel_keyboard, trips_keyboard, notes_menu_keyboard
 from service import TripService
-from database import get_session
+from database import get_session, close
 
 
 async def safe_edit_message(update: Update, text: str, reply_markup=None, parse_mode: str = None):
@@ -54,17 +54,20 @@ async def receive_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
     title = update.message.text
 
     session = get_session()
-    trip_service = TripService(session)
+    try:
+        trip_service = TripService(session)
 
-    trip = trip_service.create(
-        user_id=update.effective_user.id,
-        title=title
-    )
+        trip = trip_service.create(
+            user_id=update.effective_user.id,
+            title=title
+        )
 
-    await update.message.reply_text(
-        f"✅ Поездка «{trip.title}» успешно создана!",
-        reply_markup=main_keyboard()
-    )
+        await update.message.reply_text(
+            f"✅ Поездка «{trip.title}» успешно создана!",
+            reply_markup=main_keyboard()
+        )
+    finally:
+        close()
     return ConversationHandler.END
 
 
@@ -83,22 +86,25 @@ async def show_my_trips(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     session = get_session()
-    trip_service = TripService(session)
+    try:
+        trip_service = TripService(session)
 
-    trips = trip_service.get_by_user_id(update.effective_user.id)
+        trips = trip_service.get_by_user_id(update.effective_user.id)
 
-    if not trips:
+        if not trips:
+            await update.callback_query.message.edit_text(
+                "📭 У вас пока нет поездок.\n\nСоздайте первую поездку, нажав «Создать поездку» в главном меню.",
+                reply_markup=main_keyboard()
+            )
+            return
+
         await update.callback_query.message.edit_text(
-            "📭 У вас пока нет поездок.\n\nСоздайте первую поездку, нажав «Создать поездку» в главном меню.",
-            reply_markup=main_keyboard()
+            "📋 <b>Мои поездки</b>\n\nВыберите поездку:",
+            reply_markup=trips_keyboard(trips, page=0),
+            parse_mode="HTML"
         )
-        return
-
-    await update.callback_query.message.edit_text(
-        "📋 <b>Мои поездки</b>\n\nВыберите поездку:",
-        reply_markup=trips_keyboard(trips, page=0),
-        parse_mode="HTML"
-    )
+    finally:
+        close()
 
 
 async def trips_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -106,17 +112,20 @@ async def trips_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     session = get_session()
-    trip_service = TripService(session)
+    try:
+        trip_service = TripService(session)
 
-    trips = trip_service.get_by_user_id(update.effective_user.id)
+        trips = trip_service.get_by_user_id(update.effective_user.id)
 
-    page = int(context.match.group(1))
+        page = int(context.match.group(1))
 
-    await update.callback_query.message.edit_text(
-        "📋 <b>Мои поездки</b>\n\nВыберите поездку:",
-        reply_markup=trips_keyboard(trips, page=page),
-        parse_mode="HTML"
-    )
+        await update.callback_query.message.edit_text(
+            "📋 <b>Мои поездки</b>\n\nВыберите поездку:",
+            reply_markup=trips_keyboard(trips, page=page),
+            parse_mode="HTML"
+        )
+    finally:
+        close()
 
 
 async def trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -126,27 +135,30 @@ async def trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
     trip_id = int(context.match.group(1))
 
     session = get_session()
-    trip_service = TripService(session)
+    try:
+        trip_service = TripService(session)
 
-    trip = trip_service.get_by_id(trip_id)
+        trip = trip_service.get_by_id(trip_id)
 
-    if trip is None:
+        if trip is None:
+            await safe_edit_message(
+                update,
+                "❌ Поездка не найдена.",
+                reply_markup=main_keyboard()
+            )
+            return
+
+        # Показываем сгенерированное описание, если оно есть
+        description_text = trip.description if trip.description else "📝 Нет описания"
+
         await safe_edit_message(
             update,
-            "❌ Поездка не найдена.",
-            reply_markup=main_keyboard()
+            f"🚗 <b>{trip.title}</b>\n\n{description_text}",
+            reply_markup=notes_menu_keyboard(trip_id),
+            parse_mode="HTML"
         )
-        return
-
-    # Показываем сгенерированное описание, если оно есть
-    description_text = trip.description if trip.description else "📝 Нет описания"
-
-    await safe_edit_message(
-        update,
-        f"🚗 <b>{trip.title}</b>\n\n{description_text}",
-        reply_markup=notes_menu_keyboard(trip_id),
-        parse_mode="HTML"
-    )
+    finally:
+        close()
 
 
 async def trips_back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -164,24 +176,27 @@ async def show_trips_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     session = get_session()
-    trip_service = TripService(session)
+    try:
+        trip_service = TripService(session)
 
-    trips = trip_service.get_by_user_id(update.effective_user.id)
+        trips = trip_service.get_by_user_id(update.effective_user.id)
 
-    if not trips:
+        if not trips:
+            await safe_edit_message(
+                update,
+                "📭 У вас пока нет поездок.\n\nСоздайте первую поездку, нажав «Создать поездку» в главном меню.",
+                reply_markup=main_keyboard()
+            )
+            return
+
         await safe_edit_message(
             update,
-            "📭 У вас пока нет поездок.\n\nСоздайте первую поездку, нажав «Создать поездку» в главном меню.",
-            reply_markup=main_keyboard()
+            "📋 <b>Мои поездки</b>\n\nВыберите поездку:",
+            reply_markup=trips_keyboard(trips, page=0),
+            parse_mode="HTML"
         )
-        return
-
-    await safe_edit_message(
-        update,
-        "📋 <b>Мои поездки</b>\n\nВыберите поездку:",
-        reply_markup=trips_keyboard(trips, page=0),
-        parse_mode="HTML"
-    )
+    finally:
+        close()
 
 
 conversation_handler = ConversationHandler(

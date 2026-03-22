@@ -18,7 +18,7 @@ from keyboards import (
     main_keyboard,
 )
 from service import NoteService, AgentService
-from database import get_session
+from database import get_session, close
 from handlers.trip import show_my_trips, show_trips_list
 
 
@@ -131,21 +131,24 @@ async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     media_type = context.user_data.get("note_media_type")
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    media_file_id = None
-    if media_type == "photo":
-        photo = update.message.photo[-1]
-        media_file_id = photo.file_id
-    elif media_type == "video":
-        media_file_id = update.message.video.file_id
+        media_file_id = None
+        if media_type == "photo":
+            photo = update.message.photo[-1]
+            media_file_id = photo.file_id
+        elif media_type == "video":
+            media_file_id = update.message.video.file_id
 
-    note = note_service.create(
-        trip_id=trip_id,
-        text=text,
-        media_type=media_type,
-        media_file_id=media_file_id,
-    )
+        note = note_service.create(
+            trip_id=trip_id,
+            text=text,
+            media_type=media_type,
+            media_file_id=media_file_id,
+        )
+    finally:
+        close()
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -165,12 +168,15 @@ async def finish_note_without_media(update: Update, context: ContextTypes.DEFAUL
     text = context.user_data.get("note_text")
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    note = note_service.create(
-        trip_id=trip_id,
-        text=text,
-    )
+        note = note_service.create(
+            trip_id=trip_id,
+            text=text,
+        )
+    finally:
+        close()
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -210,18 +216,21 @@ async def receive_ai_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     trip_id = context.user_data.get("note_trip_id")
 
     session = get_session()
-    agent_service = AgentService(session)
+    try:
+        agent_service = AgentService(session)
 
-    # Генерация текста через ИИ
-    ai_text = agent_service.generate_note_text(prompt)
+        # Генерация текста через ИИ
+        ai_text = agent_service.generate_note_text(prompt)
 
-    context.user_data["note_ai_text"] = ai_text
+        context.user_data["note_ai_text"] = ai_text
 
-    await update.message.reply_text(
-        f"🤖 <b>ИИ предложил:</b>\n\n{ai_text}",
-        reply_markup=note_ai_approve_keyboard(trip_id),
-        parse_mode="HTML"
-    )
+        await update.message.reply_text(
+            f"🤖 <b>ИИ предложил:</b>\n\n{ai_text}",
+            reply_markup=note_ai_approve_keyboard(trip_id),
+            parse_mode="HTML"
+        )
+    finally:
+        close()
     return WAIT_AI_NOTE_APPROVE
 
 
@@ -246,18 +255,21 @@ async def regenerate_ai_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     prompt = context.user_data.get("note_ai_prompt")
 
     session = get_session()
-    agent_service = AgentService(session)
+    try:
+        agent_service = AgentService(session)
 
-    # Перегенерация текста через ИИ
-    ai_text = agent_service.generate_note_text(prompt)
+        # Перегенерация текста через ИИ
+        ai_text = agent_service.generate_note_text(prompt)
 
-    context.user_data["note_ai_text"] = ai_text
+        context.user_data["note_ai_text"] = ai_text
 
-    await update.callback_query.message.edit_text(
-        f"🤖 <b>ИИ предложил (новая версия):</b>\n\n{ai_text}",
-        reply_markup=note_ai_approve_keyboard(trip_id),
-        parse_mode="HTML"
-    )
+        await update.callback_query.message.edit_text(
+            f"🤖 <b>ИИ предложил (новая версия):</b>\n\n{ai_text}",
+            reply_markup=note_ai_approve_keyboard(trip_id),
+            parse_mode="HTML"
+        )
+    finally:
+        close()
     return WAIT_AI_NOTE_APPROVE
 
 
@@ -285,13 +297,16 @@ async def finish_ai_note_without_media(update: Update, context: ContextTypes.DEF
     text = context.user_data.get("note_ai_text")
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    note = note_service.create(
-        trip_id=trip_id,
-        text=text,
-        is_ai_generated=True,
-    )
+        note = note_service.create(
+            trip_id=trip_id,
+            text=text,
+            is_ai_generated=True,
+        )
+    finally:
+        close()
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -313,22 +328,25 @@ async def receive_ai_note_media(update: Update, context: ContextTypes.DEFAULT_TY
     media_type = context.user_data.get("note_media_type")
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    media_file_id = None
-    if media_type == "photo":
-        photo = update.message.photo[-1]
-        media_file_id = photo.file_id
-    elif media_type == "video":
-        media_file_id = update.message.video.file_id
+        media_file_id = None
+        if media_type == "photo":
+            photo = update.message.photo[-1]
+            media_file_id = photo.file_id
+        elif media_type == "video":
+            media_file_id = update.message.video.file_id
 
-    note = note_service.create(
-        trip_id=trip_id,
-        text=text,
-        media_type=media_type,
-        media_file_id=media_file_id,
-        is_ai_generated=True,
-    )
+        note = note_service.create(
+            trip_id=trip_id,
+            text=text,
+            media_type=media_type,
+            media_file_id=media_file_id,
+            is_ai_generated=True,
+        )
+    finally:
+        close()
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -352,24 +370,27 @@ async def show_notes_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     trip_id = int(context.match.group(1))
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    notes = note_service.get_by_trip_id(trip_id)
+        notes = note_service.get_by_trip_id(trip_id)
 
-    if not notes:
+        if not notes:
+            await safe_edit_message(
+                update,
+                "📭 У этой поездки пока нет заметок.",
+                reply_markup=notes_menu_keyboard(trip_id)
+            )
+            return
+
         await safe_edit_message(
             update,
-            "📭 У этой поездки пока нет заметок.",
-            reply_markup=notes_menu_keyboard(trip_id)
+            "📋 <b>Заметки поездки</b>\n\nВыберите заметку:",
+            reply_markup=notes_list_keyboard(notes, trip_id, page=0),
+            parse_mode="HTML"
         )
-        return
-
-    await safe_edit_message(
-        update,
-        "📋 <b>Заметки поездки</b>\n\nВыберите заметку:",
-        reply_markup=notes_list_keyboard(notes, trip_id, page=0),
-        parse_mode="HTML"
-    )
+    finally:
+        close()
 
 
 async def notes_list_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -380,16 +401,19 @@ async def notes_list_page_change(update: Update, context: ContextTypes.DEFAULT_T
     page = int(context.match.group(2))
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    notes = note_service.get_by_trip_id(trip_id)
+        notes = note_service.get_by_trip_id(trip_id)
 
-    await safe_edit_message(
-        update,
-        "📋 <b>Заметки поездки</b>\n\nВыберите заметку:",
-        reply_markup=notes_list_keyboard(notes, trip_id, page=page),
-        parse_mode="HTML"
-    )
+        await safe_edit_message(
+            update,
+            "📋 <b>Заметки поездки</b>\n\nВыберите заметку:",
+            reply_markup=notes_list_keyboard(notes, trip_id, page=page),
+            parse_mode="HTML"
+        )
+    finally:
+        close()
 
 
 async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -399,44 +423,47 @@ async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     note_id = int(context.match.group(1))
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    note = note_service.get_by_id(note_id)
+        note = note_service.get_by_id(note_id)
 
-    if note is None:
-        await safe_edit_message(
-            update,
-            "❌ Заметка не найдена.",
-            reply_markup=main_keyboard()
-        )
-        return
+        if note is None:
+            await safe_edit_message(
+                update,
+                "❌ Заметка не найдена.",
+                reply_markup=main_keyboard()
+            )
+            return
 
-    # Получаем trip_id для кнопки назад
-    trip_id = note.trip_id
+        # Получаем trip_id для кнопки назад
+        trip_id = note.trip_id
 
-    # Формируем текст заметки
-    ai_marker = "🤖 " if note.is_ai_generated else ""
-    text = f"{ai_marker}📝 <b>Заметка</b>\n\n{note.text}"
+        # Формируем текст заметки
+        ai_marker = "🤖 " if note.is_ai_generated else ""
+        text = f"{ai_marker}📝 <b>Заметка</b>\n\n{note.text}"
 
-    # Если есть медиа, отправляем его с caption
-    if note.media_type == "photo" and note.media_file_id:
-        await update.callback_query.message.edit_media(
-            media=InputMediaPhoto(media=note.media_file_id, caption=text, parse_mode="HTML"),
-            reply_markup=note_view_keyboard(note_id, trip_id)
-        )
-    elif note.media_type == "video" and note.media_file_id:
-        await update.callback_query.message.edit_media(
-            media=InputMediaVideo(media=note.media_file_id, caption=text, parse_mode="HTML"),
-            reply_markup=note_view_keyboard(note_id, trip_id)
-        )
-    else:
-        # Заметка без медиа
-        await safe_edit_message(
-            update,
-            text,
-            reply_markup=note_view_keyboard(note_id, trip_id),
-            parse_mode="HTML"
-        )
+        # Если есть медиа, отправляем его с caption
+        if note.media_type == "photo" and note.media_file_id:
+            await update.callback_query.message.edit_media(
+                media=InputMediaPhoto(media=note.media_file_id, caption=text, parse_mode="HTML"),
+                reply_markup=note_view_keyboard(note_id, trip_id)
+            )
+        elif note.media_type == "video" and note.media_file_id:
+            await update.callback_query.message.edit_media(
+                media=InputMediaVideo(media=note.media_file_id, caption=text, parse_mode="HTML"),
+                reply_markup=note_view_keyboard(note_id, trip_id)
+            )
+        else:
+            # Заметка без медиа
+            await safe_edit_message(
+                update,
+                text,
+                reply_markup=note_view_keyboard(note_id, trip_id),
+                parse_mode="HTML"
+            )
+    finally:
+        close()
 
 
 async def delete_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -446,26 +473,29 @@ async def delete_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     note_id = int(context.match.group(1))
 
     session = get_session()
-    note_service = NoteService(session)
+    try:
+        note_service = NoteService(session)
 
-    note = note_service.get_by_id(note_id)
-    trip_id = note.trip_id if note else None
+        note = note_service.get_by_id(note_id)
+        trip_id = note.trip_id if note else None
 
-    if note:
-        note_service.delete(note_id)
+        if note:
+            note_service.delete(note_id)
 
-    if trip_id:
-        await safe_edit_message(
-            update,
-            "✅ Заметка удалена.",
-            reply_markup=notes_menu_keyboard(trip_id)
-        )
-    else:
-        await safe_edit_message(
-            update,
-            "✅ Заметка удалена.",
-            reply_markup=main_keyboard()
-        )
+        if trip_id:
+            await safe_edit_message(
+                update,
+                "✅ Заметка удалена.",
+                reply_markup=notes_menu_keyboard(trip_id)
+            )
+        else:
+            await safe_edit_message(
+                update,
+                "✅ Заметка удалена.",
+                reply_markup=main_keyboard()
+            )
+    finally:
+        close()
 
 
 async def notes_list_ignore(update: Update, context: ContextTypes.DEFAULT_TYPE):
