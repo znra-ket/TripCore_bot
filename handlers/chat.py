@@ -46,7 +46,7 @@ async def receive_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=chat_mode_keyboard()
         )
     finally:
-        close()
+        close(session)
 
     return WAITING_FOR_MESSAGE
 

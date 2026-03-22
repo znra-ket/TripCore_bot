@@ -148,7 +148,7 @@ async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             media_file_id=media_file_id,
         )
     finally:
-        close()
+        close(session)
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -176,7 +176,7 @@ async def finish_note_without_media(update: Update, context: ContextTypes.DEFAUL
             text=text,
         )
     finally:
-        close()
+        close(session)
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -230,7 +230,7 @@ async def receive_ai_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
     return WAIT_AI_NOTE_APPROVE
 
 
@@ -269,7 +269,7 @@ async def regenerate_ai_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
     return WAIT_AI_NOTE_APPROVE
 
 
@@ -306,7 +306,7 @@ async def finish_ai_note_without_media(update: Update, context: ContextTypes.DEF
             is_ai_generated=True,
         )
     finally:
-        close()
+        close(session)
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -346,7 +346,7 @@ async def receive_ai_note_media(update: Update, context: ContextTypes.DEFAULT_TY
             is_ai_generated=True,
         )
     finally:
-        close()
+        close(session)
 
     # Очистка данных
     context.user_data.pop("note_trip_id", None)
@@ -390,7 +390,7 @@ async def show_notes_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def notes_list_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -413,7 +413,7 @@ async def notes_list_page_change(update: Update, context: ContextTypes.DEFAULT_T
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -463,7 +463,7 @@ async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
     finally:
-        close()
+        close(session)
 
 
 async def delete_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -495,7 +495,7 @@ async def delete_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=main_keyboard()
             )
     finally:
-        close()
+        close(session)
 
 
 async def notes_list_ignore(update: Update, context: ContextTypes.DEFAULT_TYPE):

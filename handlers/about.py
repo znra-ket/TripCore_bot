@@ -25,4 +25,4 @@ async def show_about(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)

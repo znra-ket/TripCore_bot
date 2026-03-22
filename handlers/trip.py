@@ -67,7 +67,7 @@ async def receive_title(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_keyboard()
         )
     finally:
-        close()
+        close(session)
     return ConversationHandler.END
 
 
@@ -104,7 +104,7 @@ async def show_my_trips(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def trips_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -125,7 +125,7 @@ async def trips_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -158,7 +158,7 @@ async def trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def trips_back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -196,7 +196,7 @@ async def show_trips_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 conversation_handler = ConversationHandler(

@@ -39,7 +39,7 @@ async def show_similar_trips_list(update: Update, context: ContextTypes.DEFAULT_
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def similar_trips_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -69,7 +69,7 @@ async def similar_trips_page_change(update: Update, context: ContextTypes.DEFAUL
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def similar_trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -108,7 +108,7 @@ async def similar_trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def similar_slider_navigate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -141,7 +141,7 @@ async def similar_slider_navigate(update: Update, context: ContextTypes.DEFAULT_
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def similar_trip_notes_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -177,7 +177,7 @@ async def similar_trip_notes_list(update: Update, context: ContextTypes.DEFAULT_
             parse_mode="HTML"
         )
     finally:
-        close()
+        close(session)
 
 
 async def similar_trip_note_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -225,7 +225,7 @@ async def similar_trip_note_view(update: Update, context: ContextTypes.DEFAULT_T
                 parse_mode="HTML"
             )
     finally:
-        close()
+        close(session)
 
 
 async def similar_trips_ignore(update: Update, context: ContextTypes.DEFAULT_TYPE):
