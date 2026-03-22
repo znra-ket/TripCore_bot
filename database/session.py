@@ -9,16 +9,6 @@ _session_maker = None
 _session: Session | None = None
 
 
-def init_db() -> None:
-    """Инициализация базы данных: создание движка, сессии и таблиц."""
-    global _engine, _session_maker, _session
-    
-    _engine = create_engine(DATABASE_URL)
-    _session_maker = sessionmaker(bind=_engine)
-    Base.metadata.create_all(bind=_engine)
-    _session = _session_maker()
-
-
 def close() -> None:
     """Закрытие сессии и движка."""
     global _session, _engine
@@ -31,9 +21,16 @@ def close() -> None:
         _engine.dispose()
         _engine = None
 
+def init_db() -> None:
+    """Инициализация базы данных."""
+    global _engine, _session_maker
+    
+    _engine = create_engine(DATABASE_URL)
+    _session_maker = sessionmaker(bind=_engine)
+    Base.metadata.create_all(bind=_engine)
 
 def get_session() -> Session:
-    """Получение текущей сессии."""
-    if _session is None:
-        raise RuntimeError("Сессия не инициализирована. Вызовите init_db()")
-    return _session
+    """Создание новой сессии для каждого запроса."""
+    if _session_maker is None:
+        raise RuntimeError("БД не инициализирована. Вызовите init_db()")
+    return _session_maker()
