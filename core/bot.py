@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 
 from config import TOKEN
-from database import init_db, close
+from database import init_db, close_all
 from handlers import (
     start,
     conversation_handler,
@@ -15,6 +15,7 @@ from handlers import (
     chat_mode_handler,
     note_create_handler,
     note_ai_create_handler,
+    note_edit_handler,
     show_notes_list,
     notes_list_page_change,
     view_note,
@@ -27,6 +28,18 @@ from handlers import (
     similar_trip_notes_list,
     similar_trip_note_view,
     similar_trips_ignore,
+    invite_handler,
+    trip_settings_handler,
+    user_management_handler,
+    checklist_create_handler,
+    checklist_add_item_handler,
+    show_checklists_list,
+    checklists_page_change,
+    checklists_page_ignore,
+    view_checklist,
+    complete_item,
+    delete_checklist,
+    checklists_back_to_menu,
 )
 
 
@@ -48,6 +61,7 @@ def create_bot() -> Application:
     # Обработчики заметок
     app.add_handler(note_create_handler)
     app.add_handler(note_ai_create_handler)
+    app.add_handler(note_edit_handler)
     app.add_handler(chat_mode_handler)
     app.add_handler(CallbackQueryHandler(show_notes_list, pattern=r"^note_list_(\d+)$"))
     app.add_handler(CallbackQueryHandler(notes_list_page_change, pattern=r"^note_list_page_(\d+)_(\d+)$"))
@@ -64,6 +78,26 @@ def create_bot() -> Application:
     app.add_handler(CallbackQueryHandler(similar_trip_note_view, pattern=r"^similar_note_view_(\d+)_(\d+)_(\d+)$"))
     app.add_handler(CallbackQueryHandler(similar_trips_ignore, pattern=r"^similar_trips_ignore$"))
 
+    # Обработчики приглашений
+    app.add_handler(invite_handler)
+
+    # Обработчики настроек поездки
+    app.add_handler(trip_settings_handler)
+
+    # Обработчики управления пользователями
+    app.add_handler(user_management_handler)
+
+    # Обработчики чек-листов
+    app.add_handler(checklist_create_handler)
+    app.add_handler(checklist_add_item_handler)
+    app.add_handler(CallbackQueryHandler(show_checklists_list, pattern=r"^checklist_list_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(checklists_page_change, pattern=r"^checklists_page_(\d+)_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(checklists_page_ignore, pattern=r"^checklists_page_ignore$"))
+    app.add_handler(CallbackQueryHandler(view_checklist, pattern=r"^checklist_view_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(complete_item, pattern=r"^checklist_complete_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(delete_checklist, pattern=r"^checklist_delete_(\d+)$"))
+    app.add_handler(CallbackQueryHandler(checklists_back_to_menu, pattern=r"^note_menu_(\d+)$"))
+
     return app
 
 
@@ -73,4 +107,4 @@ def run_bot() -> None:
     try:
         app.run_polling(allowed_updates=Update.ALL_TYPES)
     finally:
-        close()
+        close_all()

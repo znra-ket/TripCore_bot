@@ -18,6 +18,7 @@ class NoteService:
         self,
         trip_id: int,
         text: str,
+        user_id: int,
         media_type: str | None = None,
         media_file_id: str | None = None,
         is_ai_generated: bool = False,
@@ -26,18 +27,19 @@ class NoteService:
         trip = self.trip_repo.get_by_id(trip_id)
         if trip is None:
             raise ValueError(f"Поездка с ID {trip_id} не найдена")
-        
+
         note = self.note_repo.create(
             trip_id=trip_id,
+            user_id=user_id,
             text=text,
             media_type=media_type,
             media_file_id=media_file_id,
             is_ai_generated=is_ai_generated,
         )
-        
+
         # Генерируем описание поездки на основе всех заметок
         self._regenerate_trip_description(trip_id)
-        
+
         return note
 
     def _regenerate_trip_description(self, trip_id: int) -> None:
@@ -72,14 +74,31 @@ class NoteService:
         """Удаление заметки по ID."""
         note = self.get_by_id(note_id)
         trip_id = note.trip_id if note else None
-        
+
         result = self.note_repo.delete(note_id)
-        
+
         # После удаления заметки перегенерируем описание поездки
         if trip_id and result:
             self._regenerate_trip_description(trip_id)
-        
+
         return result
+
+    def update_note_text(self, note_id: int, new_text: str) -> Note | None:
+        """Обновление текста заметки с регенерацией описания поездки."""
+        note = self.get_by_id(note_id)
+        if note is None:
+            return None
+
+        trip_id = note.trip_id
+
+        # Обновляем текст
+        updated_note = self.note_repo.update_text(note_id, new_text)
+
+        # Перегенерируем описание поездки на основе обновлённых заметок
+        if updated_note:
+            self._regenerate_trip_description(trip_id)
+
+        return updated_note
 
     def mark_as_ai_generated(self, note_id: int) -> Note | None:
         """Отметить заметку как созданную ИИ."""

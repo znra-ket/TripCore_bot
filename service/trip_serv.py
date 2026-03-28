@@ -36,3 +36,17 @@ class TripService:
         else:
             print(f"❌ Поездка {trip_id} не найдена для обновления описания")
             return None
+
+    def update_title(self, trip_id: int, new_title: str) -> Trip | None:
+        """Обновление названия поездки."""
+        trip = self.trip_repo.update_title(trip_id, new_title)
+        if trip:
+            print(f"💾 Название поездки {trip_id} обновлено на '{new_title}'")
+        return trip
+
+    def delete_trip(self, trip_id: int) -> bool:
+        """Удаление поездки."""
+        result = self.trip_repo.delete(trip_id)
+        if result:
+            print(f"💾 Поездка {trip_id} удалена")
+        return result

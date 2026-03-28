@@ -5,6 +5,7 @@ from handlers.chat import chat_mode_handler
 from handlers.notes import (
     note_create_handler,
     note_ai_create_handler,
+    note_edit_handler,
     show_notes_list,
     notes_list_page_change,
     view_note,
@@ -20,6 +21,20 @@ from handlers.similar_trips import (
     similar_trip_note_view,
     similar_trips_ignore,
 )
+from handlers.invitation import invite_handler, handle_invite_start
+from handlers.trip_settings import trip_settings_handler
+from handlers.user_management import user_management_handler
+from handlers.checklist import (
+    checklist_create_handler,
+    checklist_add_item_handler,
+    show_checklists_list,
+    checklists_page_change,
+    checklists_page_ignore,
+    view_checklist,
+    complete_item,
+    delete_checklist,
+    checklists_back_to_menu,
+)
 
 __all__ = [
     "start",
@@ -33,6 +48,7 @@ __all__ = [
     "chat_mode_handler",
     "note_create_handler",
     "note_ai_create_handler",
+    "note_edit_handler",
     "show_notes_list",
     "notes_list_page_change",
     "view_note",
@@ -45,4 +61,17 @@ __all__ = [
     "similar_trip_notes_list",
     "similar_trip_note_view",
     "similar_trips_ignore",
+    "invite_handler",
+    "handle_invite_start",
+    "trip_settings_handler",
+    "user_management_handler",
+    "checklist_create_handler",
+    "checklist_add_item_handler",
+    "show_checklists_list",
+    "checklists_page_change",
+    "checklists_page_ignore",
+    "view_checklist",
+    "complete_item",
+    "delete_checklist",
+    "checklists_back_to_menu",
 ]

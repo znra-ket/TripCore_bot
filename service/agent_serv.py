@@ -52,11 +52,22 @@ class AgentService:
                         "не придумывая отсутствующие факты и не упоминая технические детали БД или моделей. "
                         "Обращайся к пользователю по имени (username). "
                         "Если у пользователя пока нет поездок, скажи об этом дружелюбно и предложи создать первую поездку. "
-                        "Не пиши приветствие в начале."
+                        "Не пиши приветствие в начале. "
+                        "Не используй HTML теги в ответе."
                 ),
                 contents=prompt
             )
-            return response.text
+            
+            # Очистка ответа от HTML тегов
+            text = response.text
+            if text.startswith("<!DOCTYPE") or text.startswith("<html"):
+                return "⚠️ Ошибка при генерации досье. Попробуйте позже."
+            
+            # Удаляем HTML теги если есть
+            import re
+            text = re.sub(r'<[^>]+>', '', text)
+            
+            return text
         except genai_errors.ClientError as e:
             if e.code == 429:
                 return "⚠️ Лимит запросов к ИИ исчерпан. Попробуйте позже."

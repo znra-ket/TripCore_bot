@@ -3,16 +3,40 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from database.models import Note
 
 
-def notes_menu_keyboard(trip_id: int) -> InlineKeyboardMarkup:
-    """Клавиатура меню заметок для поездки."""
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📝 Создать заметку", callback_data=f"note_create_{trip_id}")],
-        [InlineKeyboardButton("🤖 Создать ИИ заметку", callback_data=f"note_ai_create_{trip_id}")],
-        [InlineKeyboardButton("📋 Просмотреть заметки", callback_data=f"note_list_{trip_id}")],
+def notes_menu_keyboard(trip_id: int, is_owner: bool = True, is_admin: bool = False) -> InlineKeyboardMarkup:
+    """
+    Клавиатура меню заметок для поездки.
+
+    :param trip_id: ID поездки
+    :param is_owner: Если True, показывать кнопку "Пригласить" и "Настройки" (только для владельца)
+    :param is_admin: Если True, показывать кнопку "Пригласить" (для админа)
+    """
+    keyboard = [
+        # 1 строка: Создать заметку, ИИ заметка
+        [
+            InlineKeyboardButton("📝 Создать заметку", callback_data=f"note_create_{trip_id}"),
+            InlineKeyboardButton("🤖 ИИ заметка", callback_data=f"note_ai_create_{trip_id}")
+        ],
+        # 2 строка: Смотреть заметки, чек лист
+        [
+            InlineKeyboardButton("📋 Смотреть заметки", callback_data=f"note_list_{trip_id}"),
+            InlineKeyboardButton("📋 Чек лист", callback_data=f"checklist_list_{trip_id}")
+        ],
+        # 3 строка: Похожие заметки
         [InlineKeyboardButton("🔍 Похожие поездки", callback_data=f"similar_trips_{trip_id}")],
-        [InlineKeyboardButton("🔙 К списку поездок", callback_data="show_trips_list")],
-    ])
-    return keyboard
+    ]
+
+    # 4 строка: Пригласить (только для владельца и администратора)
+    if is_owner or is_admin:
+        keyboard.append([InlineKeyboardButton("📩 Пригласить", callback_data=f"invite_create_{trip_id}")])
+
+    # 5 строка: Управление поездкой (только для владельца)
+    if is_owner:
+        keyboard.append([InlineKeyboardButton("⚙️ Управление поездкой", callback_data=f"trip_settings_{trip_id}")])
+
+    keyboard.append([InlineKeyboardButton("🔙 К списку поездок", callback_data="show_trips_list")])
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 def note_media_keyboard(trip_id: int, note_type: str = "create") -> InlineKeyboardMarkup:
@@ -121,13 +145,21 @@ def notes_list_keyboard(notes: list[Note], trip_id: int, page: int = 0, page_siz
     return InlineKeyboardMarkup(keyboard)
 
 
-def note_view_keyboard(note_id: int, trip_id: int) -> InlineKeyboardMarkup:
+def note_view_keyboard(note_id: int, trip_id: int, can_edit: bool = False, can_delete: bool = False) -> InlineKeyboardMarkup:
     """Клавиатура просмотра заметки."""
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("❌ Удалить заметку", callback_data=f"note_delete_{note_id}")],
-        [InlineKeyboardButton("🔙 К списку поездок", callback_data="show_trips_list")],
-    ])
-    return keyboard
+    keyboard = []
+
+    # Кнопки редактирования и удаления только для тех, у кого есть права
+    if can_edit:
+        keyboard.append([InlineKeyboardButton("✏️ Редактировать", callback_data=f"note_edit_{note_id}")])
+
+    if can_delete:
+        keyboard.append([InlineKeyboardButton("❌ Удалить заметку", callback_data=f"note_delete_{note_id}")])
+
+    # Кнопка назад всегда отображается
+    keyboard.append([InlineKeyboardButton("🔙 К списку поездок", callback_data="show_trips_list")])
+
+    return InlineKeyboardMarkup(keyboard)
 
 
 def note_back_to_menu_keyboard(trip_id: int) -> InlineKeyboardMarkup:
@@ -251,5 +283,14 @@ def similar_note_view_keyboard(note_id: int, trip_id: int, user_trip_id: int) ->
     """Клавиатура просмотра заметки из чужой поездки."""
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔙 Назад к заметкам", callback_data=f"similar_trip_notes_{trip_id}_{user_trip_id}")],
+    ])
+    return keyboard
+
+
+def invite_link_keyboard(invite_link: str, trip_id: int) -> InlineKeyboardMarkup:
+    """Клавиатура со ссылкой-приглашением."""
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔗 Скопировать ссылку", url=invite_link)],
+        [InlineKeyboardButton("🔙 Назад", callback_data=f"trip_view_{trip_id}")],
     ])
     return keyboard

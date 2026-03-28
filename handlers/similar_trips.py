@@ -28,7 +28,7 @@ async def show_similar_trips_list(update: Update, context: ContextTypes.DEFAULT_
             await update.callback_query.message.edit_text(
                 "🔍 Похожих поездок не найдено.\n\n"
                 "Возможно, у других пользователей пока нет поездок с похожим описанием.",
-                reply_markup=notes_menu_keyboard(trip_id)
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=True, is_admin=False)
             )
             return
 
@@ -58,7 +58,7 @@ async def similar_trips_page_change(update: Update, context: ContextTypes.DEFAUL
         if not similar_trips:
             await update.callback_query.message.edit_text(
                 "🔍 Похожих поездок не найдено.",
-                reply_markup=notes_menu_keyboard(trip_id)
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=True, is_admin=False)
             )
             return
 
@@ -88,7 +88,7 @@ async def similar_trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not similar_trips:
             await update.callback_query.message.edit_text(
                 "❌ Поездка не найдена.",
-                reply_markup=notes_menu_keyboard(user_trip_id)
+                reply_markup=notes_menu_keyboard(user_trip_id, is_owner=True, is_admin=False)
             )
             return
 
@@ -127,7 +127,7 @@ async def similar_slider_navigate(update: Update, context: ContextTypes.DEFAULT_
         if not similar_trips or current_idx >= len(similar_trips):
             await update.callback_query.message.edit_text(
                 "❌ Поездка не найдена.",
-                reply_markup=notes_menu_keyboard(user_trip_id)
+                reply_markup=notes_menu_keyboard(user_trip_id, is_owner=True, is_admin=False)
             )
             return
 
@@ -197,7 +197,7 @@ async def similar_trip_note_view(update: Update, context: ContextTypes.DEFAULT_T
         if note is None:
             await update.callback_query.message.edit_text(
                 "❌ Заметка не найдена.",
-                reply_markup=notes_menu_keyboard(user_trip_id)
+                reply_markup=notes_menu_keyboard(user_trip_id, is_owner=True, is_admin=False)
             )
             return
 

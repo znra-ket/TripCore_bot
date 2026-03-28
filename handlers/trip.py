@@ -9,7 +9,7 @@ from telegram.ext import (
 )
 
 from keyboards import main_keyboard, cancel_keyboard, trips_keyboard, notes_menu_keyboard
-from service import TripService
+from service import TripService, InvitationService
 from database import get_session, close
 
 
@@ -85,11 +85,15 @@ async def show_my_trips(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ списка поездок пользователя с пагинацией."""
     await update.callback_query.answer()
 
+    user_id = update.effective_user.id
+
     session = get_session()
     try:
         trip_service = TripService(session)
+        invitation_service = InvitationService(session)
 
-        trips = trip_service.get_by_user_id(update.effective_user.id)
+        # Получаем все поездки, доступные пользователю
+        trips = invitation_service.get_trip_accessible_by_user(user_id)
 
         if not trips:
             await update.callback_query.message.edit_text(
@@ -111,11 +115,15 @@ async def trips_page_change(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Переключение страницы списка поездок."""
     await update.callback_query.answer()
 
+    user_id = update.effective_user.id
+
     session = get_session()
     try:
         trip_service = TripService(session)
+        invitation_service = InvitationService(session)
 
-        trips = trip_service.get_by_user_id(update.effective_user.id)
+        # Получаем все поездки, доступные пользователю
+        trips = invitation_service.get_trip_accessible_by_user(user_id)
 
         page = int(context.match.group(1))
 
@@ -133,10 +141,21 @@ async def trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     trip_id = int(context.match.group(1))
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
         trip_service = TripService(session)
+        invitation_service = InvitationService(session)
+
+        # Проверка доступа к поездке
+        if not invitation_service.has_access_to_trip(user_id, trip_id):
+            await safe_edit_message(
+                update,
+                "❌ У вас нет доступа к этой поездке.",
+                reply_markup=main_keyboard()
+            )
+            return
 
         trip = trip_service.get_by_id(trip_id)
 
@@ -151,10 +170,19 @@ async def trip_view(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Показываем сгенерированное описание, если оно есть
         description_text = trip.description if trip.description else "📝 Нет описания"
 
+        # Проверяем, является ли пользователь владельцем
+        is_owner = trip.user_id == user_id
+
+        # Проверяем, является ли пользователь админом
+        is_admin = False
+        if not is_owner:
+            invitation = invitation_service.invitation_repo.get_by_user_and_trip_with_role(user_id, trip_id)
+            is_admin = invitation.is_admin if invitation else False
+
         await safe_edit_message(
             update,
             f"🚗 <b>{trip.title}</b>\n\n{description_text}",
-            reply_markup=notes_menu_keyboard(trip_id),
+            reply_markup=notes_menu_keyboard(trip_id, is_owner=is_owner, is_admin=is_admin),
             parse_mode="HTML"
         )
     finally:
@@ -175,11 +203,15 @@ async def show_trips_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Показ списка поездок пользователя."""
     await update.callback_query.answer()
 
+    user_id = update.effective_user.id
+
     session = get_session()
     try:
         trip_service = TripService(session)
+        invitation_service = InvitationService(session)
 
-        trips = trip_service.get_by_user_id(update.effective_user.id)
+        # Получаем все поездки, доступные пользователю
+        trips = invitation_service.get_trip_accessible_by_user(user_id)
 
         if not trips:
             await safe_edit_message(

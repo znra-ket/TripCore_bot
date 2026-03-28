@@ -11,15 +11,18 @@ class UserService:
         self.session = session
         self.user_repo = UserRepo(session)
 
-    def create(self, user_id: int, username: str) -> User:
+    def create(self, user_id: int, username: str, first_name: str | None = None) -> User:
         """Создание нового пользователя."""
-        return self.user_repo.create(user_id, username)
+        return self.user_repo.create(user_id, username, first_name)
 
-    def get_or_create(self, user_id: int, username: str) -> User:
+    def get_or_create(self, user_id: int, username: str, first_name: str | None = None) -> User:
         """Получение или создание пользователя."""
         user = self.user_repo.get_by_id(user_id)
         if user is None:
-            user = self.user_repo.create(user_id, username)
+            user = self.user_repo.create(user_id, username, first_name)
+        else:
+            # Обновляем username и first_name если изменились
+            self.user_repo.update(user_id, username=username, first_name=first_name)
         return user
 
     def get_by_id(self, user_id: int) -> User | None:

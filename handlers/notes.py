@@ -16,8 +16,9 @@ from keyboards import (
     note_view_keyboard,
     note_back_to_menu_keyboard,
     main_keyboard,
+    cancel_keyboard,
 )
-from service import NoteService, AgentService
+from service import NoteService, AgentService, InvitationService, TripService
 from database import get_session, close
 from handlers.trip import show_my_trips, show_trips_list
 
@@ -54,19 +55,8 @@ WAIT_AI_NOTE_PROMPT = 3
 WAIT_AI_NOTE_APPROVE = 4
 WAIT_AI_NOTE_MEDIA = 5
 
-
-async def show_notes_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Показ меню заметок для поездки."""
-    await update.callback_query.answer()
-
-    trip_id = int(context.match.group(1))
-
-    await safe_edit_message(
-        update,
-        "📝 <b>Меню заметок</b>\n\nВыберите действие:",
-        reply_markup=notes_menu_keyboard(trip_id),
-        parse_mode="HTML"
-    )
+# Состояния для редактирования заметки
+WAIT_EDIT_TEXT = 6
 
 
 async def start_create_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -74,14 +64,30 @@ async def start_create_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     trip_id = int(context.match.group(1))
-    context.user_data["note_trip_id"] = trip_id
-    context.user_data["note_is_ai"] = False
+    user_id = update.effective_user.id
 
-    await update.callback_query.message.edit_text(
-        "📝 Введите текст заметки:",
-        reply_markup=note_back_to_menu_keyboard(trip_id)
-    )
-    return WAIT_NOTE_TEXT
+    session = get_session()
+    try:
+        invitation_service = InvitationService(session)
+
+        # Проверка доступа к поездке
+        if not invitation_service.has_access_to_trip(user_id, trip_id):
+            await update.callback_query.message.reply_text(
+                "❌ У вас нет доступа к этой поездке.",
+                reply_markup=main_keyboard()
+            )
+            return
+
+        context.user_data["note_trip_id"] = trip_id
+        context.user_data["note_is_ai"] = False
+
+        await update.callback_query.message.edit_text(
+            "📝 Введите текст заметки:",
+            reply_markup=note_back_to_menu_keyboard(trip_id)
+        )
+        return WAIT_NOTE_TEXT
+    finally:
+        close(session)
 
 
 async def receive_note_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -143,6 +149,7 @@ async def receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         note = note_service.create(
             trip_id=trip_id,
+            user_id=user_id,
             text=text,
             media_type=media_type,
             media_file_id=media_file_id,
@@ -166,6 +173,7 @@ async def finish_note_without_media(update: Update, context: ContextTypes.DEFAUL
     """Завершение создания заметки без медиа."""
     trip_id = context.user_data.get("note_trip_id")
     text = context.user_data.get("note_text")
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
@@ -173,6 +181,7 @@ async def finish_note_without_media(update: Update, context: ContextTypes.DEFAUL
 
         note = note_service.create(
             trip_id=trip_id,
+            user_id=user_id,
             text=text,
         )
     finally:
@@ -198,14 +207,31 @@ async def start_create_ai_note(update: Update, context: ContextTypes.DEFAULT_TYP
     await update.callback_query.answer()
 
     trip_id = int(context.match.group(1))
-    context.user_data["note_trip_id"] = trip_id
-    context.user_data["note_is_ai"] = True
+    user_id = update.effective_user.id
 
-    await update.callback_query.message.edit_text(
-        "🤖 Введите короткий текст для генерации ИИ заметки:",
-        reply_markup=note_back_to_menu_keyboard(trip_id)
-    )
-    return WAIT_AI_NOTE_PROMPT
+    session = get_session()
+    try:
+        invitation_service = InvitationService(session)
+
+        # Проверка доступа к поездке
+        if not invitation_service.has_access_to_trip(user_id, trip_id):
+            await safe_edit_message(
+                update,
+                "❌ У вас нет доступа к этой поездке.",
+                reply_markup=main_keyboard()
+            )
+            return
+
+        context.user_data["note_trip_id"] = trip_id
+        context.user_data["note_is_ai"] = True
+
+        await update.callback_query.message.edit_text(
+            "🤖 Введите короткий текст для генерации ИИ заметки:",
+            reply_markup=note_back_to_menu_keyboard(trip_id)
+        )
+        return WAIT_AI_NOTE_PROMPT
+    finally:
+        close(session)
 
 
 async def receive_ai_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -286,7 +312,7 @@ async def exit_ai_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.callback_query.message.edit_text(
         "❌ Создание ИИ заметки отменено.",
-        reply_markup=notes_menu_keyboard(trip_id)
+        reply_markup=notes_menu_keyboard(trip_id, is_owner=True, is_admin=False)
     )
     return ConversationHandler.END
 
@@ -295,6 +321,7 @@ async def finish_ai_note_without_media(update: Update, context: ContextTypes.DEF
     """Завершение создания ИИ заметки без медиа."""
     trip_id = context.user_data.get("note_trip_id")
     text = context.user_data.get("note_ai_text")
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
@@ -302,6 +329,7 @@ async def finish_ai_note_without_media(update: Update, context: ContextTypes.DEF
 
         note = note_service.create(
             trip_id=trip_id,
+            user_id=user_id,
             text=text,
             is_ai_generated=True,
         )
@@ -316,7 +344,7 @@ async def finish_ai_note_without_media(update: Update, context: ContextTypes.DEF
     await update.callback_query.answer()
     await update.callback_query.message.edit_text(
         f"✅ ИИ заметка создана!",
-        reply_markup=notes_menu_keyboard(trip_id)
+        reply_markup=notes_menu_keyboard(trip_id, is_owner=True)
     )
     return ConversationHandler.END
 
@@ -326,6 +354,7 @@ async def receive_ai_note_media(update: Update, context: ContextTypes.DEFAULT_TY
     trip_id = context.user_data.get("note_trip_id")
     text = context.user_data.get("note_ai_text")
     media_type = context.user_data.get("note_media_type")
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
@@ -340,6 +369,7 @@ async def receive_ai_note_media(update: Update, context: ContextTypes.DEFAULT_TY
 
         note = note_service.create(
             trip_id=trip_id,
+            user_id=user_id,
             text=text,
             media_type=media_type,
             media_file_id=media_file_id,
@@ -356,7 +386,7 @@ async def receive_ai_note_media(update: Update, context: ContextTypes.DEFAULT_TY
 
     await update.message.reply_text(
         f"✅ ИИ заметка создана!",
-        reply_markup=notes_menu_keyboard(trip_id)
+        reply_markup=notes_menu_keyboard(trip_id, is_owner=True)
     )
     return ConversationHandler.END
 
@@ -368,9 +398,26 @@ async def show_notes_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     trip_id = int(context.match.group(1))
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
+        invitation_service = InvitationService(session)
+        trip_service = TripService(session)
+
+        # Проверка доступа к поездке
+        if not invitation_service.has_access_to_trip(user_id, trip_id):
+            await safe_edit_message(
+                update,
+                "❌ У вас нет доступа к этой поездке.",
+                reply_markup=main_keyboard()
+            )
+            return
+
+        # Проверяем владельца
+        trip = trip_service.get_by_id(trip_id)
+        is_owner = trip.user_id == user_id if trip else False
+
         note_service = NoteService(session)
 
         notes = note_service.get_by_trip_id(trip_id)
@@ -379,7 +426,7 @@ async def show_notes_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await safe_edit_message(
                 update,
                 "📭 У этой поездки пока нет заметок.",
-                reply_markup=notes_menu_keyboard(trip_id)
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=is_owner, is_admin=False)
             )
             return
 
@@ -399,9 +446,21 @@ async def notes_list_page_change(update: Update, context: ContextTypes.DEFAULT_T
 
     trip_id = int(context.match.group(1))
     page = int(context.match.group(2))
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
+        invitation_service = InvitationService(session)
+
+        # Проверка доступа к поездке
+        if not invitation_service.has_access_to_trip(user_id, trip_id):
+            await safe_edit_message(
+                update,
+                "❌ У вас нет доступа к этой поездке.",
+                reply_markup=main_keyboard()
+            )
+            return
+
         note_service = NoteService(session)
 
         notes = note_service.get_by_trip_id(trip_id)
@@ -421,10 +480,12 @@ async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     note_id = int(context.match.group(1))
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
         note_service = NoteService(session)
+        invitation_service = InvitationService(session)
 
         note = note_service.get_by_id(note_id)
 
@@ -436,8 +497,21 @@ async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        # Проверка доступа к поездке
+        if not invitation_service.has_access_to_trip(user_id, note.trip_id):
+            await safe_edit_message(
+                update,
+                "❌ У вас нет доступа к этой поездке.",
+                reply_markup=main_keyboard()
+            )
+            return
+
         # Получаем trip_id для кнопки назад
         trip_id = note.trip_id
+
+        # Проверяем права на редактирование и удаление
+        can_edit = invitation_service.can_edit_note(user_id, trip_id, note.user_id)
+        can_delete = invitation_service.can_delete_note(user_id, trip_id, note.user_id)
 
         # Формируем текст заметки
         ai_marker = "🤖 " if note.is_ai_generated else ""
@@ -447,19 +521,19 @@ async def view_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if note.media_type == "photo" and note.media_file_id:
             await update.callback_query.message.edit_media(
                 media=InputMediaPhoto(media=note.media_file_id, caption=text, parse_mode="HTML"),
-                reply_markup=note_view_keyboard(note_id, trip_id)
+                reply_markup=note_view_keyboard(note_id, trip_id, can_edit=can_edit, can_delete=can_delete)
             )
         elif note.media_type == "video" and note.media_file_id:
             await update.callback_query.message.edit_media(
                 media=InputMediaVideo(media=note.media_file_id, caption=text, parse_mode="HTML"),
-                reply_markup=note_view_keyboard(note_id, trip_id)
+                reply_markup=note_view_keyboard(note_id, trip_id, can_edit=can_edit, can_delete=can_delete)
             )
         else:
             # Заметка без медиа
             await safe_edit_message(
                 update,
                 text,
-                reply_markup=note_view_keyboard(note_id, trip_id),
+                reply_markup=note_view_keyboard(note_id, trip_id, can_edit=can_edit, can_delete=can_delete),
                 parse_mode="HTML"
             )
     finally:
@@ -471,29 +545,47 @@ async def delete_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     note_id = int(context.match.group(1))
+    user_id = update.effective_user.id
 
     session = get_session()
     try:
         note_service = NoteService(session)
+        invitation_service = InvitationService(session)
+        trip_service = TripService(session)
 
         note = note_service.get_by_id(note_id)
-        trip_id = note.trip_id if note else None
 
-        if note:
-            note_service.delete(note_id)
-
-        if trip_id:
+        if note is None:
             await safe_edit_message(
                 update,
-                "✅ Заметка удалена.",
-                reply_markup=notes_menu_keyboard(trip_id)
-            )
-        else:
-            await safe_edit_message(
-                update,
-                "✅ Заметка удалена.",
+                "❌ Заметка не найдена.",
                 reply_markup=main_keyboard()
             )
+            return
+
+        trip_id = note.trip_id
+
+        # Проверка права на удаление заметки
+        if not invitation_service.can_delete_note(user_id, trip_id, note.user_id):
+            # Если нет прав админа/владельца, но это не его заметка - отказ
+            await safe_edit_message(
+                update,
+                "❌ Вы можете удалять только свои заметки.",
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=False, is_admin=False)
+            )
+            return
+
+        note_service.delete(note_id)
+
+        # Проверяем владельца для клавиатуры
+        is_owner = invitation_service.is_owner(user_id, trip_id)
+        is_admin = invitation_service.is_admin(user_id, trip_id)
+
+        await safe_edit_message(
+            update,
+            "✅ Заметка удалена.",
+            reply_markup=notes_menu_keyboard(trip_id, is_owner=is_owner, is_admin=is_admin)
+        )
     finally:
         close(session)
 
@@ -501,6 +593,188 @@ async def delete_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def notes_list_ignore(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Игнорирование нажатий на неактивные кнопки пагинации."""
     await update.callback_query.answer()
+
+
+# === РЕДАКТИРОВАНИЕ ЗАМЕТКИ ===
+
+async def start_edit_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Начало редактирования заметки."""
+    await update.callback_query.answer()
+
+    note_id = int(context.match.group(1))
+    user_id = update.effective_user.id
+
+    session = get_session()
+    try:
+        note_service = NoteService(session)
+        invitation_service = InvitationService(session)
+
+        note = note_service.get_by_id(note_id)
+
+        if note is None:
+            await safe_edit_message(
+                update,
+                "❌ Заметка не найдена.",
+                reply_markup=main_keyboard()
+            )
+            return ConversationHandler.END
+
+        trip_id = note.trip_id
+
+        # Проверка права на редактирование заметки
+        if not invitation_service.can_edit_note(user_id, trip_id, note.user_id):
+            await safe_edit_message(
+                update,
+                "❌ Вы можете редактировать только свои заметки.",
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=False, is_admin=False)
+            )
+            return ConversationHandler.END
+
+        # Сохраняем ID заметки в контексте
+        context.user_data["edit_note_id"] = note_id
+
+        await update.callback_query.message.edit_text(
+            f"✏️ <b>Редактирование заметки</b>\n\n"
+            f"Текущий текст:\n<tg-spoiler>{note.text}</tg-spoiler>\n\n"
+            f"Введите новый текст заметки:",
+            reply_markup=cancel_keyboard(),
+            parse_mode="HTML"
+        )
+        return WAIT_EDIT_TEXT
+    finally:
+        close(session)
+
+
+async def receive_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Сохранение нового текста заметки."""
+    new_text = update.message.text.strip()
+
+    if not new_text:
+        await update.message.reply_text(
+            "❌ Текст не может быть пустым. Введите новый текст:",
+            reply_markup=cancel_keyboard()
+        )
+        return WAIT_EDIT_TEXT
+
+    note_id = context.user_data.get("edit_note_id")
+    user_id = update.effective_user.id
+
+    session = get_session()
+    try:
+        note_service = NoteService(session)
+        trip_service = TripService(session)
+        invitation_service = InvitationService(session)
+
+        note = note_service.get_by_id(note_id)
+
+        if note is None:
+            await update.message.reply_text(
+                "❌ Заметка не найдена.",
+                reply_markup=main_keyboard()
+            )
+            return ConversationHandler.END
+
+        trip_id = note.trip_id
+
+        # Проверка права на редактирование заметки
+        if not invitation_service.can_edit_note(user_id, trip_id, note.user_id):
+            await update.message.reply_text(
+                "❌ Вы можете редактировать только свои заметки.",
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=False, is_admin=False)
+            )
+            return ConversationHandler.END
+
+        # Обновляем текст заметки
+        updated_note = note_service.update_note_text(note_id, new_text)
+
+        if updated_note:
+            trip_id = updated_note.trip_id
+
+            # Проверяем владельца для клавиатуры
+            is_owner = invitation_service.is_owner(user_id, trip_id)
+            is_admin = invitation_service.is_admin(user_id, trip_id)
+
+            await update.message.reply_text(
+                f"✅ Заметка обновлена!",
+                reply_markup=note_view_keyboard(note_id, trip_id)
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Не удалось обновить заметку.",
+                reply_markup=main_keyboard()
+            )
+    finally:
+        close(session)
+
+    # Очистка данных
+    context.user_data.pop("edit_note_id", None)
+
+    return ConversationHandler.END
+
+
+async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отмена редактирования и возврат к просмотру заметки."""
+    await update.callback_query.answer()
+
+    note_id = context.user_data.get("edit_note_id")
+    user_id = update.effective_user.id
+
+    # Очистка данных
+    context.user_data.pop("edit_note_id", None)
+
+    session = get_session()
+    try:
+        note_service = NoteService(session)
+        invitation_service = InvitationService(session)
+
+        note = note_service.get_by_id(note_id)
+
+        if note is None:
+            await update.callback_query.message.edit_text(
+                "❌ Заметка не найдена.",
+                reply_markup=main_keyboard()
+            )
+            return ConversationHandler.END
+
+        trip_id = note.trip_id
+
+        # Проверка права на редактирование заметки
+        if not invitation_service.can_edit_note(user_id, trip_id, note.user_id):
+            await update.callback_query.message.edit_text(
+                "❌ Вы можете редактировать только свои заметки.",
+                reply_markup=notes_menu_keyboard(trip_id, is_owner=False, is_admin=False)
+            )
+            return ConversationHandler.END
+
+        # Формируем текст заметки
+        ai_marker = "🤖 " if note.is_ai_generated else ""
+        text = f"{ai_marker}📝 <b>Заметка</b>\n\n{note.text}"
+
+        # Проверяем права на редактирование и удаление
+        can_edit = invitation_service.can_edit_note(user_id, trip_id, note.user_id)
+        can_delete = invitation_service.can_delete_note(user_id, trip_id, note.user_id)
+
+        # Если есть медиа, показываем его
+        if note.media_type == "photo" and note.media_file_id:
+            await update.callback_query.message.edit_media(
+                media=InputMediaPhoto(media=note.media_file_id, caption=text, parse_mode="HTML"),
+                reply_markup=note_view_keyboard(note_id, note.trip_id, can_edit=can_edit, can_delete=can_delete)
+            )
+        elif note.media_type == "video" and note.media_file_id:
+            await update.callback_query.message.edit_media(
+                media=InputMediaVideo(media=note.media_file_id, caption=text, parse_mode="HTML"),
+                reply_markup=note_view_keyboard(note_id, note.trip_id, can_edit=can_edit, can_delete=can_delete)
+            )
+        else:
+            await update.callback_query.message.edit_text(
+                text,
+                reply_markup=note_view_keyboard(note_id, note.trip_id, can_edit=can_edit, can_delete=can_delete),
+                parse_mode="HTML"
+            )
+    finally:
+        close(session)
+
+    return ConversationHandler.END
 
 
 # Обработчики для обычной заметки
@@ -548,5 +822,18 @@ note_ai_create_handler = ConversationHandler(
         ],
     },
     fallbacks=[CallbackQueryHandler(show_trips_list, pattern=r"^show_trips_list$")],
+    per_message=False,
+)
+
+# Обработчики для редактирования заметки
+note_edit_handler = ConversationHandler(
+    entry_points=[CallbackQueryHandler(start_edit_note, pattern=r"^note_edit_(\d+)$")],
+    states={
+        WAIT_EDIT_TEXT: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, receive_edit_text),
+            CallbackQueryHandler(cancel_edit, pattern=r"^cancel$"),
+        ],
+    },
+    fallbacks=[CallbackQueryHandler(cancel_edit, pattern=r"^cancel$")],
     per_message=False,
 )

@@ -10,7 +10,7 @@ _session_maker = None
 def init_db() -> None:
     """Инициализация базы данных."""
     global _engine, _session_maker
-    
+
     _engine = create_engine(DATABASE_URL)
     _session_maker = sessionmaker(bind=_engine)
     Base.metadata.create_all(bind=_engine)
@@ -19,6 +19,17 @@ def init_db() -> None:
 def close(session: Session) -> None:
     """Закрытие конкретной сессии."""
     session.close()
+
+
+def close_all() -> None:
+    """Закрытие всех соединений при завершении работы бота."""
+    global _engine, _session_maker
+
+    if _session_maker is not None:
+        _session_maker.close_all()
+    if _engine is not None:
+        _engine.dispose()
+
 
 def get_session() -> Session:
     """Создание новой сессии для каждого запроса."""
